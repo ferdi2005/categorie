@@ -24,7 +24,6 @@ $wikidatabotlink = '';
 
 // Script
 
-$esistenti = []
 require 'boz-mw/autoload.php';
 $wikidata =  \wm\Wikidata::instance();
 $wikidata->login( $user, $password );
@@ -46,47 +45,68 @@ EOT;
 $sparql = $wikidata->querySPARQL($query);
 echo($query);
 foreach ($sparql as $key => $monument) {
-	preg_match('/^Q\d+/', $monument->'item'->'value', $id_arr);
-	$wikidataid = $id_arr[0];
-	$wlmid = $monument->'value'->'value';
-	$label = $monument->'itemLabel'->'value';
-	$city = $monument->'citylabel'->'value';
-	preg_match('/^Q\d+/', $monument->'city'->'value', $id_arr);
+	$wikidataid = basename($monument->item->value);
+	$wlmid = $monument->value->value;
+	$label = $monument->itemLabel->value;
+	$city = $monument->citylabel->value;
+	preg_match('/^Q\d+/', $monument->city->value, $id_arr);
 	$cityid = $id_arr[0];
-	$coords = $monument->'coords'->'value'
-	$commons_url =  $monument->'sitelink'->'value';
-	echo($commons_url);
+	$coords = $monument->coords->value;
+	$commons_url =  $monument->sitelink->value;
 	if (empty($commons_url)) {
+					$response = $commons->fetch( [
+							'action' => 'query',
+							'list'   => 'search',
+							'srsearch' => $wlmid,
+							'srnamespace' => '6',
+							'srlimit' => $limit,
+							] );
+			$pages = $response->query->search;
+			$i = 0;
+			foreach ($pages as $key => $page) {
+				$i += 1;
+			}
+
 			if (empty($coords)) {
 				$text = '{{Wikidata Infobox}}';
 			} else {
-				preg_match('\d+\.\d+', $coords, $id_arr);
-				$latitude = $id_arr[0]	
-				$longitude = $id_arr[1]
-				$text = '{{Object location dec'. $latitude . '|' . $longitude . '}} {{Wikidata Infobox}}'			
+				preg_match('/\d+.\d+\s\d+.\d+/', $coords, $id_arr);
+				
+				$latitude = explode(' ', $id_arr[0])[0];
+				$longitude = explode(' ', $id_arr[0])[1];
+				$text = '{{Object location dec'. '|'. $latitude . '|' . $longitude . '}} {{Wikidata Infobox}}';			
 			}
 			$catlabel = 'Category:' . $label;
-			$response = $commons->fetch( [
-					'action' => 'edit',
-					'title'   => $catlabel,
-					'text' => $text,
-					'summary' => 'Creating new category, see' . $commonsbotlink,
-					'createonly' => 'true',
-					'bot' => 'true'
-					] );
+			try {
+				$response = $commons->edit( [
+						'title'   => $catlabel,
+						'text' => $text,
+						'summary' => 'Creating new category, see' . $commonsbotlink,
+						'createonly' => 'true',
+						'bot' => 'true'
+						] );
+			} 
+			catch(Exception $e) {
+				continue;
+			}
 					$catforpage = ' [[' . $catlabel . ']]';
 			foreach ($pages as $key => $page) {
-				$response = $commons->fetch( [
-						'action' => 'edit',
-						'pageid'   => $page->'pageid',
+				$response = $commons->edit( [
+						'pageid'   => $page->pageid,
 						'appendtext' => $catforpage,
 						'summary' => 'Adding new category'. $catlabel . ', see' . $commonsbotlink,
 						'bot' => 'true'
 						] );
 			}
-
-
+			$data = new \wb\DataModel();
+			$statement = new \wb\StatementCommonsCategory( 'P373', $label );
+			$data->addClaim( $statement );
+			$wikidata->editEntity( [
+				'id' => $wikidataid,
+				'data' => $data->getJSON()
+			] );
 	
+	}
 }
 ?>
 
