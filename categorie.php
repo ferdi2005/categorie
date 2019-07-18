@@ -17,6 +17,11 @@
 $user = '';
 $password = '';
 $limit = '500'; //TODO: aumentare a 5000
+if (isset($_GET['splimit'])) {
+	$splimit = $_GET['splimit'];
+} else {
+	$splimit = 10;
+}
 $commonsbotlink = '';
 $wikidatabotlink = '';
 
@@ -41,7 +46,7 @@ $query = <<<EOT
 	OPTIONAL { ?item wdt:P625 ?coords.}
 	OPTIONAL {?sitelink schema:isPartOf <https://commons.wikimedia.org/>;schema:about ?item. }
 	}
-	LIMIT 10
+	LIMIT $splimit
 EOT;
 echo('Esecuzione della query SPAQRL <div style="font-family: monospace">');
 $sparql = $wikidata->querySPARQL($query);
@@ -51,7 +56,7 @@ foreach ($sparql as $key => $monument) {
 	$wikidataid = basename($monument->item->value);
 	$wlmid = $monument->value->value;
 	$label = $monument->itemLabel->value;
-	echo('<li> Eseguo operazioni sul monumento ' . $label . ' (' . $wikidataid . ') </br>');
+	echo('<li> Eseguo operazioni sul monumento <a href="'. $monument->item->value . '">' . $label . ' (' . $wikidataid . ') </a> </br>');
 	$city = $monument->citylabel->value;
 	preg_match('/^Q\d+/', $monument->city->value, $id_arr);
 	$cityid = $id_arr[0];
@@ -71,24 +76,24 @@ foreach ($sparql as $key => $monument) {
 			foreach ($pages as $key => $page) {
 				$i += 1;
 			}
-			if ($i = 0) {
+			if ($i == 0) {
 				echo('Nessuna foto trovata, interrompo. </li> <br/>');
 				continue;
 			}
 
 			if (empty($coords)) {
-				$text = '{{Wikidata Infobox}}';
+				$text = '{{Wikidata Infobox|qid=' . $wikidataid . '}}';
 			} else {
 				preg_match('/\d+.\d+\s\d+.\d+/', $coords, $id_arr);
 				
 				$latitude = explode(' ', $id_arr[0])[0];
 				$longitude = explode(' ', $id_arr[0])[1];
-				$text = '{{Object location dec'. '|'. $latitude . '|' . $longitude . '}} {{Wikidata Infobox}}';			
+				$text = '{{Object location dec'. '|'. $latitude . '|' . $longitude . '}} {{Wikidata Infobox|qid='. $wikidataid . '}}';			
 			}
 			$catlabel = 'Category:' . $label;
 			echo('La categoria sarà <a href="https://commons.wikimedia.org/wiki/'. $catlabel . '">'. $catlabel . '</a> </br>');
 			try {
-				echo('Creo la categoria');
+				echo('Creo la categoria<br/>');
 				$response = $commons->edit( [
 						'title'   => $catlabel,
 						'text' => $text,
@@ -103,13 +108,13 @@ foreach ($sparql as $key => $monument) {
 			}
 					$catforpage = ' [[' . $catlabel . ']]';
 			foreach ($pages as $key => $page) {
+				echo('Aggiungo la categoria alla foto' . $page->title . '</br>');
 				$response = $commons->edit( [
 						'pageid'   => $page->pageid,
 						'appendtext' => $catforpage,
 						'summary' => 'Adding new category'. $catlabel . ', see' . $commonsbotlink,
-						'bot' => 'true'
 						] );
-						echo('Aggiungo la categoria alla foto' . $page->title . '</br>');
+						sleep(5);
 			}
 			echo("Ho terminato l'aggiunta della categoria alle foto, proseguo all'inserimento della categoria nell'item (proprietà P373) </br>");
 			$data = new \wb\DataModel();
