@@ -36,14 +36,16 @@ $commons = \wm\Commons::instance();
 $commons->login($user, $password);
 echo('Inizializzzo connessione con username'. $user . "</br> \n");
 $query = <<<EOT
-	SELECT ?item ?itemLabel ?value ?city ?cityLabel ?sitelink ?coords WHERE {
+	SELECT ?item ?itemLabel ?value ?city ?cityLabel ?sitelink ?coords ?citycat WHERE {
 	?item wdt:P2186 ?value.
 	?item wdt:P17 wd:Q38.
+	?city wdt:P373 ?citycat
 	FILTER NOT EXISTS { ?item wdt:P373 ?x. }
 	FILTER NOT EXISTS { ?item wdt:P935 ?y. }
 	SERVICE wikibase:label { bd:serviceParam wikibase:language "[AUTO_LANGUAGE], en, it". }
-	OPTIONAL { ?item wdt:P131 ?city. }
+	?item wdt:P131 ?city.
 	OPTIONAL { ?item wdt:P625 ?coords.}
+	?city wdt:P373 ?citycat
 	OPTIONAL {?sitelink schema:isPartOf <https://commons.wikimedia.org/>;schema:about ?item. }
 	}
 	LIMIT $splimit
@@ -62,6 +64,7 @@ foreach ($sparql as $key => $monument) {
 	$cityid = $id_arr[0];
 	$coords = $monument->coords->value;
 	$commons_url =  $monument->sitelink->value;
+	$citycat = $monument->citycat->value;
 	if (empty($commons_url)) {
 		echo("Cerco foto che abbiano il WLMID di quel monumento salvato <br/> \n");
 		$wlmsearch = '"' . $wlmid . '"';
@@ -74,7 +77,6 @@ foreach ($sparql as $key => $monument) {
 							'srwhat' => 'text'
 							] );
 			$pages = $response->query->search;
-			var_dump($pages);
 			$i = 0;
 			foreach ($pages as $key => $page) {
 				$i += 1;
@@ -93,7 +95,17 @@ foreach ($sparql as $key => $monument) {
 				$longitude = explode(' ', $id_arr[0])[1];
 				$text = '{{Object location dec'. '|'. $latitude . '|' . $longitude . '}} {{Wikidata Infobox|qid='. $wikidataid . '}}';			
 			}
+			$text = $text . ' ' . $citycaturl;
+			$input = cli\Input::askInput( "Vuoi che il nome della categoria sia " . $label . '? Rispondi Y se sì oppure scrivi il nome che la categoria deve avere oppure scrivi city se vuoi che il nome della categoria sia "'. $label . ' (' . $city . '). Scrivi abort per stoppare ed andare avanti"');
+			if ($input == 'city') {
+				$label = $label . ' ('. $city . ')';
+			} elseif($input != 'Y') {
+				$label = $input;
+			} elsif($input == 'abort') {
+				continue;
+			}
 			$catlabel = 'Category:' . $label;
+			$citycaturl = '[[Category:' . $citycat . ']]';
 			echo('La categoria sarà <a href="https://commons.wikimedia.org/wiki/'. $catlabel . '">'. $catlabel . "</a> </br> \n");
 			try {
 				echo('Creo la categoria<br/>');
