@@ -14,14 +14,11 @@
 */
 // Config values
 
-$user = 'FerdiBot';
-$password = '11052005';
-$limit = '500'; //TODO: aumentare a 5000
-if (isset($_GET['splimit'])) {
-	$splimit = $_GET['splimit'];
-} else {
-	$splimit = 50;
-}
+$user = '';
+$password = '';
+$limit = '500';
+$splimit = 500;
+
 $commonsbotlink = '';
 $wikidatabotlink = '';
 
@@ -66,7 +63,7 @@ foreach ($sparql as $key => $monument) {
 	$commons_url =  $monument->sitelink->value;
 	$citycat = $monument->citycat->value;
 	if (empty($commons_url)) {
-		echo("Cerco foto che abbiano il WLMID di quel monumento salvato <br/> \n");
+		echo("Cerco foto che abbiano il WLMID di quel monumento salvato \n");
 		$wlmsearch = '"' . $wlmid . '"';
 					$response = $commons->fetch( [
 							'action' => 'query',
@@ -82,7 +79,7 @@ foreach ($sparql as $key => $monument) {
 				$i += 1;
 			}
 			if ($i == 0) {
-				echo("Nessuna foto trovata, interrompo. </li> <br/> \n");
+				echo("Nessuna foto trovata, interrompo. \n");
 				continue;
 			}
 
@@ -95,17 +92,37 @@ foreach ($sparql as $key => $monument) {
 				$longitude = explode(' ', $id_arr[0])[1];
 				$text = '{{Object location dec'. '|'. $latitude . '|' . $longitude . '}} {{Wikidata Infobox|qid='. $wikidataid . '}}';			
 			}
+			// cerco categorie che abbiano nome simile
+			$looks = $commons->fetch( [
+					'action' => 'query',
+					'list'   => 'search',
+					'srsearch' => 'intitle:' . $label,
+					'srnamespace' => '14',
+					'srlimit' => $limit,
+					] );
+			$lookup = $looks->query->search;
+			$u = 0;
+			foreach ($lookup as $key => $look) {
+				$u += 1;
+			}
+			if ($u > 1) {
+				echo('Abbiamo trovato delle categorie con nome simile a quello del monumento, ovvero ' . $label . "\n");
+				foreach ($lookup as $key => $look) {
+					echo($look->title . ' (https://commons.wikimedia.org/wiki/' . $look->title . ") \n");
+					
+				}
+			}
+			$citycaturl = '[[Category:' . $citycat . ']]';
 			$text = $text . ' ' . $citycaturl;
-			$input = cli\Input::askInput( "Vuoi che il nome della categoria sia " . $label . '? Rispondi Y se sì oppure scrivi il nome che la categoria deve avere oppure scrivi city se vuoi che il nome della categoria sia "'. $label . ' (' . $city . '). Scrivi abort per stoppare ed andare avanti"');
+			$input = cli\Input::askInput( "Vuoi che il nome della categoria sia " . $label . '? Rispondi Y se sì oppure scrivi il nome che la categoria deve avere oppure scrivi city se vuoi che il nome della categoria sia "'. $label . ' (' . $city . '). Scrivi abort per stoppare ed andare avanti."');
 			if ($input == 'city') {
 				$label = $label . ' ('. $city . ')';
-			} elseif($input != 'Y') {
+			} elseif($input != 'Y' && $input != 'abort') {
 				$label = $input;
-			} elsif($input == 'abort') {
+			} elseif($input == 'abort') {
 				continue;
 			}
 			$catlabel = 'Category:' . $label;
-			$citycaturl = '[[Category:' . $citycat . ']]';
 			echo('La categoria sarà <a href="https://commons.wikimedia.org/wiki/'. $catlabel . '">'. $catlabel . "</a> </br> \n");
 			try {
 				echo('Creo la categoria<br/>');
