@@ -111,6 +111,8 @@ foreach ($sparql as $key => $monument) {
 					echo($look->title . ' (https://commons.wikimedia.org/wiki/' . $look->title . ") \n");
 					
 				}
+			} else {
+				echo('Non abbiamo trovato categorie simili.');
 			}
 			$citycaturl = '[[Category:' . $citycat . ']]';
 			$text = $text . ' ' . $citycaturl;
@@ -126,6 +128,7 @@ foreach ($sparql as $key => $monument) {
 			echo('La categoria sarà <a href="https://commons.wikimedia.org/wiki/'. $catlabel . '">'. $catlabel . "</a> </br> \n");
 			try {
 				echo('Creo la categoria<br/>');
+				sleep(15);
 				$response = $commons->edit( [
 						'title'   => $catlabel,
 						'text' => $text,
